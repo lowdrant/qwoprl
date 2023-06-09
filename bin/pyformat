@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+#
+# Format python files
+#
+set -o errexit
+reporoot="$(dirname "$(dirname "$(realpath "$0")")")"
+pyproj="$reporoot/pyproject.toml"
+
+pushd "$reporoot" &> /dev/null  # no stack output
+
+pyfiles="$(find . -ipath '*.py')"
+
+autopep8 --global-config="$pyproj" -i $pyfiles
+isort --settings-path="$pyproj" $pyfiles
+
+popd &> /dev/null  # no stack output
