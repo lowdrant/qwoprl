@@ -82,25 +82,60 @@ def discretize_state(state):
 
     # X Coord
     # - left, right, close to center
-    if abs(x) < 0.1:  # centered
+    if x < -0.1:  # left
         ret += 1
-    elif x < 0:  # left
+    elif x < 0:  # center left
         ret += 2
-    elif x > 0:  # right
+    elif x > 0.1:  # right
         ret += 3
+    elif x > 0:  # center right
+        ret += 4
 
     # Y Coord
     # - log-ish-scale approaching ground
+    # - ret can shift by up to 3, so consecutive diff must be >3 now
+    retdelta = 5
     if y < 0:
-        ret += 10
+        ret += 1 * retdelta
     elif y < 0.01:
-        ret += 20
+        ret += 2 * retdelta
     elif y < 0.1:
-        ret += 30
-    elif y < 0.5:
-        ret += 40
+        ret += 3 * retdelta
+    elif y < 1:
+        ret += 4 * retdelta
 
-    # TODO: Velocity
+    # Vx
+    # - log scale, pos and neg vel
+    retdelta *= 4
+    if vx < -10:
+        ret += 1 * retdelta
+    elif vx < -1:
+        ret += 2 * retdelta
+    elif vx < -0.1:
+        ret += 3 * retdelta
+    elif vx > 10:
+        ret += 4 * retdelta
+    elif vx > 1:
+        ret += 5 * retdelta
+    elif vx > 0.1:
+        ret += 6 * retdelta
+
+    # Vy
+    # - log scale, pos and neg vel
+    retdelta *= 6
+    if vy < -10:
+        ret += 1 * retdelta
+    elif vy < -1:
+        ret += 2 * retdelta
+    elif vy < -0.1:
+        ret += 3 * retdelta
+    elif vy > 10:
+        ret += 4 * retdelta
+    elif vy > 1:
+        ret += 5 * retdelta
+    elif vy > 0.1:
+        ret += 6 * retdelta
+
     # TODO: Angle
     # TODO: Angular Velocity
     # TODO: auto-chop up logarithmically-ish
