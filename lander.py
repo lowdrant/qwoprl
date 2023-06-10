@@ -175,115 +175,42 @@ def test_DiscretizerFactory():
     assert ds2.n == 25, 'bad fine size'
 
 
-def discretize_state(state):
-    """Convert state to index in state table.
-        "Grids" out state space into uneven chunks to simplify policy learning.
-        TODO: I wonder if there's a way to make this work continuously
-    """
-    ret = 0
-    x, y, vx, vy, th, w = state[:-2]
-
-    # X Coord
-    # - left, right, close to center
-    if x < -0.1:  # left
-        ret += 1
-    elif x < 0:  # center left
-        ret += 2
-    elif x > 0.1:  # right
-        ret += 3
-    elif x > 0:  # center right
-        ret += 4
-
-    # Y Coord
-    # - log-ish-scale approaching ground
-    # - ret can shift by up to 4, so consecutive diff must be 5 now
-    retdelta = 5
-    if y < 0:
-        ret += 1 * retdelta
-    elif y < 0.01:
-        ret += 2 * retdelta
-    elif y < 0.1:
-        ret += 3 * retdelta
-    elif y < 1:
-        ret += 4 * retdelta
-    retdelta *= 5
-
-    # Vx
-    # - log scale, pos and neg vel
-    if vx < -10:
-        ret += 1 * retdelta
-    elif vx < -1:
-        ret += 2 * retdelta
-    elif vx < -0.1:
-        ret += 3 * retdelta
-    elif vx > 10:
-        ret += 4 * retdelta
-    elif vx > 1:
-        ret += 5 * retdelta
-    elif vx > 0.1:
-        ret += 6 * retdelta
-    retdelta *= 7
-
-    # Vy
-    # - log scale, pos and neg vel
-    if vy < -10:
-        ret += 1 * retdelta
-    elif vy < -1:
-        ret += 2 * retdelta
-    elif vy < -0.1:
-        ret += 3 * retdelta
-    elif vy > 10:
-        ret += 4 * retdelta
-    elif vy > 1:
-        ret += 5 * retdelta
-    elif vy > 0.1:
-        ret += 6 * retdelta
-    retdelta *= 7
-
-    # TODO: Angle
-    # Angle
-    if th < 0.5:
-        ret += 1 * retdelta
-    elif th < 1:
-        ret += 2 * retdelta
-    elif th < 2:
-        ret += 3 * retdelta
-    elif th < 3:
-        ret += 4 * retdelta
-
-    # TODO: Angular Velocity
-    # TODO: auto-chop up logarithmically-ish
-
-    return ret
-
-
 if __name__ == '__main__':
-
-    test_DiscretizerFactory()
-
     from sys import argv
 
     import gymnasium as gym
+    from numpy import linspace, pi
+
+    test_DiscretizerFactory()  # !! only way to know discrete is good
+
+    # Gym Setup
     env = gym.make("LunarLander-v2", render_mode="human")
 
+    # Policy Setup
+    ds = DiscretizerFactory([
+        {-0.1: '<', 0: '<', 0.1: '>', 0: '>'},  # x
+        {0: '<', 0.1: '<', 1: '<'},  # y
+        {-1: '<', -0.1: '<', 1: '>', 0.1: '>'},  # vx
+        {-1: '<', -0.1: '<', 1: '>', 0.1: '>'},  # vy
+        {v: '<' for v in linspace(0.1, pi, 4)},  # theta
+        {-1: '<', -0.1: '<', 1: '>', 0.1: '>'}  # omega
+    ])
+    policy = QTable(ds.n, 4, env.action_space.sample, ds)
+
+    # Experiment
     olog, rlog, alog, ilog = [], [], [], []
-
+    N = 1000 if len(argv) < 2 else int(argv[1])
     state, info = env.reset(seed=42)
-    N = 1000
-    if len(argv) > 1:
-        N = int(argv[1])
-
-    policy = QTable(6000, 4, env.action_space.sample, discretize_state)
     for _ in range(N):
         # Action
-        action = policy.pick_action(state)
+        action = policy.pick_action(state[:-2])
         # action = env.action_space.sample()
         next_state, reward, terminated, truncated, info = env.step(action)
         if terminated or truncated:
             observation, info = env.reset()
 
         # Update
-        policy.update_reward(state, action, next_state, reward)
+        policy.update_reward(state[:-2], action, next_state[:-2], reward)
         state = next_state
 
         olog.append(state)
