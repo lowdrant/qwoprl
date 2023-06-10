@@ -93,7 +93,7 @@ def discretize_state(state):
 
     # Y Coord
     # - log-ish-scale approaching ground
-    # - ret can shift by up to 3, so consecutive diff must be >3 now
+    # - ret can shift by up to 4, so consecutive diff must be 5 now
     retdelta = 5
     if y < 0:
         ret += 1 * retdelta
@@ -103,10 +103,10 @@ def discretize_state(state):
         ret += 3 * retdelta
     elif y < 1:
         ret += 4 * retdelta
+    retdelta *= 5
 
     # Vx
     # - log scale, pos and neg vel
-    retdelta *= 4
     if vx < -10:
         ret += 1 * retdelta
     elif vx < -1:
@@ -119,10 +119,10 @@ def discretize_state(state):
         ret += 5 * retdelta
     elif vx > 0.1:
         ret += 6 * retdelta
+    retdelta *= 7
 
     # Vy
     # - log scale, pos and neg vel
-    retdelta *= 6
     if vy < -10:
         ret += 1 * retdelta
     elif vy < -1:
@@ -135,8 +135,19 @@ def discretize_state(state):
         ret += 5 * retdelta
     elif vy > 0.1:
         ret += 6 * retdelta
+    retdelta *= 7
 
     # TODO: Angle
+    # Angle
+    if th < 0.5:
+        ret += 1 * retdelta
+    elif th < 1:
+        ret += 2 * retdelta
+    elif th < 2:
+        ret += 3 * retdelta
+    elif th < 3:
+        ret += 4 * retdelta
+
     # TODO: Angular Velocity
     # TODO: auto-chop up logarithmically-ish
 
