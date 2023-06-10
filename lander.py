@@ -64,6 +64,42 @@ class QTable:
         self.table[state, action] = new_value
 
 
+def discretize_state(state):
+    """Convert state to index in state table.
+        "Grids" out state space into uneven chunks to simplify policy learning.
+        TODO: I wonder if there's a way to make this work continuously
+    """
+    ret = 0
+    x, y, vx, vy, th, w = state[:-2]
+
+    # X Coord
+    # - left, right, close to center
+    if abs(x) < 0.1:  # centered
+        ret += 1
+    elif x < 0:  # left
+        ret += 2
+    elif x > 0:  # right
+        ret += 3
+
+    # Y Coord
+    # - log-ish-scale approaching ground
+    if y < 0:
+        ret += 10
+    elif y < 0.01:
+        ret += 20
+    elif y < 0.1:
+        ret += 30
+    elif y < 0.5:
+        ret += 40
+
+    # TODO: Velocity
+    # TODO: Angle
+    # TODO: Angular Velocity
+    # TODO: auto-chop up logarithmically-ish
+
+    return ret
+
+
 if __name__ == '__main__':
     import gymnasium as gym
     env = gym.make("LunarLander-v2")  # , render_mode="human")
