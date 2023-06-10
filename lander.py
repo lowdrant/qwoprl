@@ -144,26 +144,32 @@ def discretize_state(state):
 
 
 if __name__ == '__main__':
+    from sys import argv
+
     import gymnasium as gym
-    env = gym.make("LunarLander-v2")  # , render_mode="human")
+    env = gym.make("LunarLander-v2", render_mode="human")
 
     olog, rlog, alog, ilog = [], [], [], []
 
-    obs, info = env.reset(seed=42)
-    # policy = QTable(8, 4, env.action_space.sample, discretize_state)
-    for _ in range(500):
+    state, info = env.reset(seed=42)
+    N = 1000
+    if len(argv) > 1:
+        N = int(argv[1])
+
+    policy = QTable(6000, 4, env.action_space.sample, discretize_state)
+    for _ in range(N):
         # Action
-        # action = policy.pick_action(obs)
-        action = env.action_space.sample()
-        obs, reward, terminated, truncated, info = env.step(action)
+        action = policy.pick_action(state)
+        # action = env.action_space.sample()
+        next_state, reward, terminated, truncated, info = env.step(action)
         if terminated or truncated:
             observation, info = env.reset()
 
         # Update
-        # policy.update_reward(state, action, next_state, reward)
-        # state = next_state
+        policy.update_reward(state, action, next_state, reward)
+        state = next_state
 
-        olog.append(obs)
+        olog.append(state)
         alog.append(action)
         rlog.append(reward)
     env.close()
