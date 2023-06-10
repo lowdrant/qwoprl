@@ -1,30 +1,38 @@
 #!/usr/bin/env python3
 import matplotlib.pyplot as plt
+from matplotlib.gridspec import GridSpec
 from numpy import argmax, asarray, cos, max, sin, vstack, zeros
 from numpy.random import rand, seed
 
 
-def r2d(th):
-    """1x... angles -> 2x2x... rot matrices"""
-    return asarray([[cos(th), -sin(th)], [sin(th), cos(th)]])
-
-
-def plotobs(obs, fig=None):
-    """8xN states"""
+def plotrl(obs, reward, action, fig=None, **figkw):
+    """Plot RL outputs
+        INPUTS:
+            obs -- NxM -- M observation vectors of dimension N
+            reward -- Mx1 -- reward at each timestep
+            action -- Mx1 -- action at each timestep
+            fig -- figure object for simpler plotting
+            figkw -- If fig is None, kwargs for fig call. Otherwise unused
+        OUTPUTS:
+            fig
+    """
     if fig is None:
-        fig = plt.figure(1)
-    fig.clf()
-    x, y, vx, vy, th, w, c1, c2 = obs
+        fig = plt.figure(**figkw)
+    fig.set_tight_layout(True)
+    gs = GridSpec(3, 2)
+    axobs = fig.add_subplot(gs[:-1, :])
+    axact = fig.add_subplot(gs[-1, 0])
+    axrwrd = fig.add_subplot(gs[-1, 1], sharex=axact)
 
-    ax = fig.add_subplot(111)
-    ax.set_aspect('equal')
-    ax.grid()
+    plt.setp(axobs, ylabel='y', xlabel='x', xlim=(-1.5, 1.5), aspect='equal')
+    plt.setp(axact, ylabel='action', xlabel='time index')
+    plt.setp(axrwrd, ylabel='reward', xlabel='time index')
 
-    ax.plot(x, y, 'k.-')
-    ax.set_xlabel('x')
-    ax.set_ylabel('y')
-    ax.set_xlim((-1.5, 1.5))
-
+    axobs.grid()
+    axobs.plot(*obs[:2], 'k.-')
+    axact.step(range(len(action)), action)
+    axrwrd.grid()
+    axrwrd.plot(reward, '.-')
     return fig
 
 
@@ -122,12 +130,9 @@ if __name__ == '__main__':
 
         olog.append(obs)
         alog.append(action)
+        rlog.append(reward)
     env.close()
 
     olog = vstack(olog).T
-    plotobs(olog)
-    fig = plt.figure(2)
-    fig.clf()
-    ax = fig.add_subplot(111)
-    ax.step(range(len(alog)), alog)
+    plotrl(olog, rlog, alog)
     plt.show()
