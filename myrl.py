@@ -13,7 +13,7 @@ from copy import deepcopy
 
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
-from numpy import argmax, zeros
+from numpy import argmax, loadtxt, savetxt, zeros
 from numpy.random import rand, seed
 
 __all__ = ['plotrl', 'QTable', 'DiscretizerFactory']
@@ -84,6 +84,27 @@ class QTable:
         new_value = ((1 - self.alpha) * old_value
                      + self.alpha * (reward + self.gamma * next_max))
         self.table[state, action] = new_value
+
+    def save(self, fn):
+        """Save QTable to raw text
+            INPUTS:
+                fn -- filename to save
+                kwargs -- kwargs for numpy.loadtxt
+        """
+        header = f'eps={self.eps}\nalpha={self.alpha}\ngamma={self.gamma}'
+        savetxt(fn, self.table, header=header)
+
+    def load(self, fn):
+        """Load QTable from raw text
+            INPUTS:
+                fn -- filename to load
+                kwargs -- kwargs for numpy.loadtxt
+        """
+        self.table = loadtxt(fn)
+        with open(fn, 'r') as f:
+            self.eps = float(f.readline().split('=')[-1])
+            self.alpha = float(f.readline().split('=')[-1])
+            self.gamma = float(f.readline().split('=')[-1])
 
 
 class DiscretizerFactory:
