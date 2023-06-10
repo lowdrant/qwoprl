@@ -2,7 +2,7 @@
 """
 Lunar Lander gym playground
 """
-from sys import argv
+from argparse import ArgumentParser
 
 import matplotlib.pyplot as plt
 from numpy import linspace, pi, vstack
@@ -10,10 +10,22 @@ from numpy import linspace, pi, vstack
 import gymnasium as gym
 from myrl import DiscretizerFactory, QTable, plotrl
 
-if __name__ == '__main__':
+parser = ArgumentParser('Lunar lander RL playground')
+parser.add_argument(
+    'N', nargs='?', help='Number of experiments to run', default=10, type=int)
+parser.add_argument('--eps', default=0.25, type=float,
+                    help='Random action probability (def:0.25)')
+parser.add_argument('--alpha', default=0.5, type=float,
+                    help='Learning parameter (def:0.5)')
+parser.add_argument('--gamma', default=0.5, type=float,
+                    help='Reward parameter (def:0.5)')
+parser.add_argument('--render-mode', default=None, help='gym render mode')
 
+
+if __name__ == '__main__':
+    args = parser.parse_args()
     # Gym Setup
-    env = gym.make("LunarLander-v2", render_mode="human")
+    env = gym.make("LunarLander-v2", render_mode=args.render_mode)
 
     # Policy Setup
     ds = DiscretizerFactory([
@@ -24,11 +36,12 @@ if __name__ == '__main__':
         {v: '<' for v in linspace(0.1, pi, 4)},  # theta
         {-1: '<', -0.1: '<', 1: '>', 0.1: '>'}  # omega
     ])
-    policy = QTable(ds.n, 4, env.action_space.sample, ds, eps=0.1, alpha=0.8)
+    policy = QTable(ds.n, 4, env.action_space.sample, ds,
+                    eps=args.eps, alpha=args.alpha, gamma=args.gamma)
 
     # Experiment
     olog, rlog, alog, ilog = [], [], [], []
-    N = 100 if len(argv) < 2 else int(argv[1])
+    N = args.N
     state, info = env.reset(seed=42)
     for _ in range(N):
         # Action
