@@ -89,22 +89,22 @@ class QTable:
         """Save QTable to raw text
             INPUTS:
                 fn -- filename to save
-                kwargs -- kwargs for numpy.loadtxt
         """
         header = f'eps={self.eps}\nalpha={self.alpha}\ngamma={self.gamma}'
         savetxt(fn, self.table, header=header)
 
-    def load(self, fn):
+    def load(self, fn, load_params=False):
         """Load QTable from raw text
             INPUTS:
                 fn -- filename to load
-                kwargs -- kwargs for numpy.loadtxt
+                load_params -- load eps,alpha,gamma from file. Default: False
         """
         self.table = loadtxt(fn)
-        with open(fn, 'r') as f:
-            self.eps = float(f.readline().split('=')[-1])
-            self.alpha = float(f.readline().split('=')[-1])
-            self.gamma = float(f.readline().split('=')[-1])
+        if load_params:
+            with open(fn, 'r') as f:
+                self.eps = float(f.readline().split('=')[-1])
+                self.alpha = float(f.readline().split('=')[-1])
+                self.gamma = float(f.readline().split('=')[-1])
 
 
 class DiscretizerFactory:
