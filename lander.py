@@ -13,13 +13,13 @@ from myrl import DiscretizerFactory, QTable, plotrl
 
 parser = ArgumentParser('Lunar lander RL playground')
 parser.add_argument(
-    'N', nargs='?', help='Number of experiments to run', default=10, type=int)
+    'N', nargs='?', help='number of experiments to run', default=10, type=int)
 parser.add_argument('--eps', default=0.25, type=float,
-                    help='Random action probability (def:0.25)')
+                    help='random action probability (def:0.25)')
 parser.add_argument('--alpha', default=0.5, type=float,
-                    help='Learning parameter (def:0.5)')
+                    help='learning rate (def:0.5)')
 parser.add_argument('--gamma', default=0.5, type=float,
-                    help='Reward parameter (def:0.5)')
+                    help='discount parameter (def:0.5)')
 parser.add_argument('--render-mode', default=None, help='gym render mode')
 parser.add_argument('--load-fn', help='filename for load. Default: lander.txt',
                     default='lander.txt')

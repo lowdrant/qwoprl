@@ -55,8 +55,8 @@ class QTable:
         n -- state space size
         m -- action space size
         action_sample -- action sampling callable
-        alpha -- learning rate param
-        gamma -- learning rate param
+        alpha -- learning rate
+        gamma -- discount parameter
         eps -- probability of randomly choosing an action vs. a learned one
     """
 
