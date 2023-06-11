@@ -21,11 +21,15 @@ parser.add_argument('--alpha', default=0.5, type=float,
 parser.add_argument('--gamma', default=0.5, type=float,
                     help='Reward parameter (def:0.5)')
 parser.add_argument('--render-mode', default=None, help='gym render mode')
-parser.add_argument('--fn', help='filename for load/save',
+parser.add_argument('--fn', help='filename for load/save. Default: lander.txt',
                     default='lander.txt')
-parser.add_argument('--load', action='store_true', help='load from fn')
-parser.add_argument('--save', action='store_true', help='load to fn')
-
+parser.add_argument('--load', action='store_true', help='load from fn flag')
+parser.add_argument('--save', action='store_true', help='save to fn flag')
+parser.add_argument('--overwrite', action='store_true',
+                    help='overwrite save file flag')
+parser.add_argument('--load-params', action='store_true',
+                    help='load params from fn flag')
+parser.add_argument('--plot', action='store_true', help='plot data flag')
 
 if __name__ == '__main__':
     args = parser.parse_args()
@@ -40,9 +44,9 @@ if __name__ == '__main__':
         {v: '<' for v in linspace(0.1, pi, 4)},  # theta
         {-1: '<', -0.1: '<', 1: '>', 0.1: '>'}  # omega
     ])
+    policy = QTable(ds.n, 4, env.action_space.sample, ds)
     if args.load:
-        policy = QTable(ds.n, 4, env.action_space.sample, ds)
-        policy.load(args.fn)
+        policy.load(args.fn, args.load_params)
     else:
         policy = QTable(ds.n, 4, env.action_space.sample, ds,
                         eps=args.eps, alpha=args.alpha, gamma=args.gamma)
@@ -69,7 +73,22 @@ if __name__ == '__main__':
 
     # End
     if args.save:
-        policy.save(args.fn)
-    olog = vstack(olog).T
-    plotrl(olog, rlog, alog)
-    plt.show()
+        fn = args.fn
+        if not args.overwrite:  # test file existence
+            found_fn = False
+            n = 1
+            while not found_fn:
+                try:
+                    open(fn, 'r').close()
+                except FileNotFoundError:
+                    found_fn = True
+                else:
+                    print(f"'{fn}' already exists! incrementing number")
+                    fn = args.fn.rsplit('.')[0] + f'_{n}.' + fn.rsplit('.')[-1]
+                    n += 1
+        policy.save(fn)
+
+    if args.plot:
+        olog = vstack(olog).T
+        plotrl(olog, rlog, alog)
+        plt.show()
