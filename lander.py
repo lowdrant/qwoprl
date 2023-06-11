@@ -21,7 +21,9 @@ parser.add_argument('--alpha', default=0.5, type=float,
 parser.add_argument('--gamma', default=0.5, type=float,
                     help='Reward parameter (def:0.5)')
 parser.add_argument('--render-mode', default=None, help='gym render mode')
-parser.add_argument('--fn', help='filename for load/save. Default: lander.txt',
+parser.add_argument('--load-fn', help='filename for load. Default: lander.txt',
+                    default='lander.txt')
+parser.add_argument('--save-fn', help='filename for save. Default: lander.txt',
                     default='lander.txt')
 parser.add_argument('--load', action='store_true', help='load from fn flag')
 parser.add_argument('--save', action='store_true', help='save to fn flag')
@@ -30,6 +32,10 @@ parser.add_argument('--overwrite', action='store_true',
 parser.add_argument('--load-params', action='store_true',
                     help='load params from fn flag')
 parser.add_argument('--plot', action='store_true', help='plot data flag')
+parser.add_argument('--epoch-size', default=10000, type=int,
+                    help='number of experiments per epoch')
+parser.add_argument('--save-epochs', action='store_true',
+                    help='save epoch progress flag')
 
 if __name__ == '__main__':
     args = parser.parse_args()
@@ -45,17 +51,23 @@ if __name__ == '__main__':
         {-1: '<', -0.1: '<', 1: '>'}  # omega
     ])
     policy = QTable(ds.n, 4, env.action_space.sample, ds)
+    num_epoch = 0  # track epoch number
     if args.load:
-        policy.load(args.fn, args.load_params)
+        policy.load(args.load_fn, args.load_params)
+        split = args.load_fn.split('_epoch')
+        epoch_basefn = split[0]
+        if len(split) > 1:
+            num_epoch = int(split[1].rsplit('.')[0])
     else:
         policy = QTable(ds.n, 4, env.action_space.sample, ds,
                         eps=args.eps, alpha=args.alpha, gamma=args.gamma)
+        epoch_basefn = args.save_fn.rsplit('.')[0]
 
     # Experiment
     olog, rlog, alog = [], [], []
     state, info = env.reset(seed=42)
     seed(0)
-    for _ in range(args.N):
+    for n in range(args.N):
         # Action
         action = policy.pick_action(state[:-2])
         next_state, reward, terminated, truncated, info = env.step(action)
@@ -69,11 +81,18 @@ if __name__ == '__main__':
         olog.append(state)
         alog.append(action)
         rlog.append(reward)
+
+        if args.save_epochs:
+            if (n + 1) % args.epoch_size == 0:
+                num_epoch += 1
+                policy.save(epoch_basefn + f'_epoch{num_epoch}.txt')
+                print(f'Saved epoch {num_epoch}')
+
     env.close()
 
     # End
     if args.save:
-        fn = args.fn
+        fn = args.save_fn
         if not args.overwrite:  # test file existence
             found_fn = False
             n = 1
@@ -84,7 +103,8 @@ if __name__ == '__main__':
                     found_fn = True
                 else:
                     print(f"'{fn}' already exists! incrementing number")
-                    fn = args.fn.rsplit('.')[0] + f'_{n}.' + fn.rsplit('.')[-1]
+                    fn = args.save_fn.rsplit(
+                        '.')[0] + f'_{n}.' + fn.rsplit('.')[-1]
                     n += 1
         policy.save(fn)
 
