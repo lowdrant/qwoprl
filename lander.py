@@ -43,11 +43,11 @@ if __name__ == '__main__':
     # Setup
     env = gym.make("LunarLander-v2", render_mode=args.render_mode)
     ds = DiscretizerFactory([
-        {-0.1: '<', 0: '<', 0.1: '>'},  # x
+        {-0.3: '<', 0.3: '>'},  # x
         {0: '<', 0.1: '<', 1: '<'},  # y
         {-1: '<', -0.1: '<', 1: '>'},  # vx
         {-1: '<', -0.1: '<', 1: '>'},  # vy
-        {v: '<' for v in linspace(0.1, pi, 4)},  # theta
+        {v: '<' for v in linspace(0.1, pi, 10)},  # theta
         {-1: '<', -0.1: '<', 1: '>'}  # omega
     ])
     policy = QTable(ds.n, 4, env.action_space.sample, ds)
@@ -87,6 +87,13 @@ if __name__ == '__main__':
                 num_epoch += 1
                 policy.save(epoch_basefn + f'_epoch{num_epoch}.txt')
                 print(f'Saved epoch {num_epoch}')
+                if args.plot:
+                    plt.ion()
+                    olog = vstack(olog).T
+                    plotrl(olog, rlog, alog, num=1)
+                    plt.show()
+                    plt.pause(1)
+                olog, rlog, alog = [], [], []
 
     env.close()
 
@@ -108,7 +115,5 @@ if __name__ == '__main__':
                     n += 1
         policy.save(fn)
 
-    if args.plot:
-        olog = vstack(olog).T
-        plotrl(olog, rlog, alog)
-        plt.show()
+    plt.ioff()
+    plt.show()

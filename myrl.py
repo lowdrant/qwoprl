@@ -32,6 +32,7 @@ def plotrl(obs, reward, action, fig=None, **figkw):
     """
     if fig is None:
         fig = plt.figure(**figkw)
+    fig.clf()
     fig.set_tight_layout(True)
     gs = GridSpec(3, 2)
     axobs = fig.add_subplot(gs[:-1, :])
