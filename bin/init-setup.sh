@@ -2,7 +2,7 @@
 #
 # Setup repo
 #
-reporoot="$(dirname "$(dirname "$(realpath "$0")")")"
+reporoot="$(git rev-parse --show-toplevel)"
 
 # User-Configurable Constants
 REQ_PROGRAMS=( pip3 )  # array of commands

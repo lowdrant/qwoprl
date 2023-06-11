@@ -3,7 +3,7 @@
 # Format python files
 #
 set -o errexit
-reporoot="$(dirname "$(dirname "$(realpath "$0")")")"
+reporoot="$(git rev-parse --show-toplevel)"
 pyproj="$reporoot/pyproject.toml"
 
 pushd "$reporoot" &> /dev/null  # no stack output
