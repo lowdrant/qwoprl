@@ -213,6 +213,184 @@ def test_DiscretizerFactory():
     assert ds2.n == 25, 'bad fine size'
 
 
+class DQN:
+    """Deep Q-Learning implementation
+        https://pytorch.org/tutorials/intermediate/reinforcement_q_learning.html
+
+        INPUTS:
+            n -- int -- state space size
+            m -- int -- action space size
+            random_action -- callable -- pick a random action
+            eps -- float -- probability of choosing random action over optimal
+    """
+
+    def __init__(self, n, m, random_action):
+        assert callable(random_action)
+        self.random_action = random_action
+        super().__init__()
+
+        connection_size = 128
+        self.input_layer = nn.Linear(n, connection_size)
+        self.connecting_layer = nn.Linear(connection_size, connection_size)
+        self.output_layer = nn.Linear(connection_size, m)
+
+    def forward(self, x):
+        x = F.relu(self.input_layer(x))
+        x = F.relu(self.connecting_layer(x))
+        return self.output_layer(x)
+
+    def __call__(self, x, eps=0):
+        if rand() < eps:
+            return self.random_action()
+        return argmax(self.forward(x))
+
+
+class DQNOptimizer:
+    """
+    https://pytorch.org/tutorials/intermediate/reinforcement_q_learning.html
+
+        INPUTS:
+
+        KWARGS:
+            epsfun -- callable -- Training iteration -> probability of choosing random actions
+            eps_start -- float -- initial probability of choosing random action
+            eps_end -- float -- final probability of choosing random action
+            eps_decay -- float -- exponenital decay rate of epsilon
+    """
+
+    def __init__(self, env, optimizer, memory, target_net, **kwargs):
+        self.optimizer = optimizer
+        self.env = env
+        self.policy_net = deepcopy(target_net)
+        self.optimizer = deepcopy(optimizer)
+        self.memory = deepcopy(memory)
+
+        self._epsfun = kwargs.get('epsfun', self._epsfun_default)
+        self.eps_start = kwargs.get('eps_start', 0.9)
+        self.eps_end = kwargs.get('eps_end', 0.05)
+        self.eps_decay = kwargs.get('eps_decay', 1000)
+
+        self.BATCH_SIZE = kwargs.get('batch_size', 128)
+        self.GAMMA = kwargs.get('gamma', 128)
+        self.TAU = kwargs.get('tau', 128)
+        self.BATCH_SIZE = kwargs.get('batch_size', 128)
+
+        device_str = 'cpu'
+        if kwargs.get('try_cuda', False) and torch.cuda.is_available():
+            device_str = 'cuda'
+        self.device = torch.device(device_str)
+
+    def _epsfun_default(self, trial_num):
+        """Training iteration -> probability of choosing random action
+            This is the default implementation, which exponentially decays the
+            probability of selecting a random action as the trial number
+            increases,
+
+            INPUTS:
+                trial_num -- int -- trial number
+            OUTPUTS:
+                eps -- float -- probability of
+        """
+        return self.eps_end + (self.eps_start - self.eps_end) * exp(-trial_num / self.eps_decay)
+
+    def _tensor_unsqueeze(self, x, dtype=float32):
+        """Perform `tensor(x, dtype=dtype, device=self.device).unsqueeze(0)`"""
+        return tensor(x, dtype=dtype, device=self.device).unsqueeze(0)
+
+    def optimization_step(self):
+        if len(self.memory) < self.BATCH_SIZE:
+            return
+        transitions = self.memory.sample(self.BATCH_SIZE)
+        batch = Transition(*zip(*transitions))  # transpose
+
+        # Compute a mask of non-final states and concatenate the batch elements
+        # (a final state would've been the one after which simulation ended)
+        non_final_mask = tensor(tuple(map(lambda s: s is not None,
+                                          batch.next_state)), device=self.device, dtype=torch.bool)
+        non_final_next_states = cat([s for s in batch.next_state
+                                     if s is not None])
+        state_batch = cat(batch.state)
+        action_batch = cat(batch.action)
+        reward_batch = cat(batch.reward)
+
+        # Compute Q(s_t, a) - the model computes Q(s_t), then we select the
+        # columns of actions taken. These are the actions which would've been taken
+        # for each batch state according to policy_net
+        state_action_values = policy_net(state_batch).gather(1, action_batch)
+
+        # Compute V(s_{t+1}) for all next states.
+        # Expected values of actions for non_final_next_states are computed based
+        # on the "older" target_net; selecting their best reward with max(1)[0].
+        # This is merged based on the mask, such that we'll have either the expected
+        # state value or 0 in case the state was final.
+        next_state_values = zeros(self.BATCH_SIZE, device=self.device)
+        with no_grad():
+            next_state_values[non_final_mask] = target_net(
+                non_final_next_states).max(1)[0]
+        # Compute the expected Q values
+        expected_state_action_values = (
+            next_state_values * self.GAMMA) + reward_batch
+
+        # Optimization
+        criterion = nn.SmoothL1Loss()
+        loss = criterion(state_action_values,
+                         expected_state_action_values.unsqueeze(1))
+        self.optimizer.zero_grad()
+        loss.backward()
+        # - in-place gradient clipping
+        torch.nn.utils.clip_grad_value_(self.policy_net.parameters(), 100)
+        self.optimizer.step()
+
+    def update_weights(self):
+        """Soft update of the target weights"""
+        target_net_state_dict = self.target_net.state_dict()
+        policy_net_state_dict = self.policy_net.state_dict()
+        for key in policy_net_state_dict:
+            target_net_state_dict[key] = policy_net_state_dict[key] * \
+                self.TAU + target_net_state_dict[key] * (1 - self.TAU)
+        self.target_net.load_state_dict(target_net_state_dict)
+
+    def optimize(self, num_episodes):
+        for i_episode in range(num_episodes):
+            state, _ = self.env.reset()
+            state = self._tensor_unsqueeze(state)
+
+            # Run Single Episode
+            for t in count():
+                # Run Time Step
+                action = self._select_action(state, i_episode)
+                next_state, reward, term, trunc, _ = self.env.step(
+                    action.item())
+                reward = tensor([reward], device=self.device)
+                next_state = None if term else self._tensor_unsqueeze(
+                    next_state)
+                self.memory.push(state, action, next_state, reward)
+                state = next_state
+
+                # Optimize
+                self.optimization_step()
+                self.update_weights()
+
+                if term or trunc:
+                    break
+
+            # Epsiode End
+            episode_durations.append(t + 1)
+            plot_durations()
+
+        print('Complete')
+        plot_durations(show_result=True)
+        plt.ioff()
+        plt.show()
+
+    def _select_action(self, state, n):
+        """select action"""
+        if rand() > self._epsfun(n):
+            with torch.no_grad():
+                return self.policy_net(state).max(1)[1].view(1, 1)
+        return torch.tensor([[self.env.action_space.sample()]], device=self.device, dtype=torch.long)
+
+
 if __name__ == '__main__':
     print('Running unit tests...')
     test_DiscretizerFactory()
