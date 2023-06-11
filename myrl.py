@@ -10,13 +10,19 @@ Provides:
                           returns a callable for discretizing the state
 """
 from copy import deepcopy
+from itertools import count
+from itertools import product as iterprod
 
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
-from numpy import argmax, loadtxt, savetxt, zeros
-from numpy.random import rand, seed
+from numpy import argmax, array_equal, exp, loadtxt, savetxt
+from numpy.random import rand
 
-__all__ = ['plotrl', 'QTable', 'DiscretizerFactory']
+import torch
+import torch.nn.functional as F
+from torch import cat, float32, nn, no_grad, tensor, zeros
+
+__all__ = ['plotrl', 'QTable', 'DiscretizerFactory', 'DQN', 'DQNOptimizer']
 
 
 def plotrl(obs, reward, action, fig=None, **figkw):
@@ -92,7 +98,7 @@ class QTable:
                 fn -- filename to save
         """
         header = f'eps={self.eps}\nalpha={self.alpha}\ngamma={self.gamma}'
-        savetxt(fn, self.table, header=header)
+        savetxt(fn, self.tabletable, header=header)
 
     def load(self, fn, load_params=False):
         """Load QTable from raw text

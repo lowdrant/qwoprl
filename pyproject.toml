@@ -6,9 +6,10 @@ max_line_length = 79
 ignore = ["E731", "W391"]
 
 [tool.pylint."messages control"]
-disable = ["redefined-outer-name", "invalid-name", "no-member",
+disable = ["redefined-outer-name", "invalid-name", "no-member", "unspecified-encoding",
            "unused-wildcard-import", "unsubscriptable-object", "wildcard-import",
-           "wrong-import-position", "cell-var-from-loop", "unused-argument"]
+           "wrong-import-position", "cell-var-from-loop", "unused-argument",
+           "undefined-loop-variable"]
 
 [tool.pylint.miscellaneous]
 notes = ["XXX", "TODO"]
