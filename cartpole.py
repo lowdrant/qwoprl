@@ -46,8 +46,13 @@ n_actions = env.action_space.n
 state, info = env.reset()
 n_observations = len(state)
 
+
 policy_net = DQN(n_observations, n_actions).to(device)
+# Load Previous Work
 fn = 'cp.torch'
+if any(['--reset' in v for v in argv]):
+    print('Removing epoch savefile')
+    os.remove(fn)
 if os.path.isfile(fn):
     print(f'Loading previous work from {fn}')
     policy_net.load_state_dict(torch.load('cp.torch'))
@@ -155,12 +160,15 @@ def optimize_model():
     optimizer.step()
 
 
-# if torch.cuda.is_available():
-#     num_episodes = 600
-# else:
+# CLI arg for number episodes
 num_episodes = 50
-if len(argv) > 1:
-    num_episodes = int(argv[1])
+for arg in argv:
+    try:
+        num_episodes = int(arg)
+    except ValueError:
+        pass
+    else:
+        break
 print(f'Running {num_episodes} episodes')
 
 for i_episode in range(num_episodes):
