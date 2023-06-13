@@ -46,6 +46,11 @@ n_actions = env.action_space.n
 state, info = env.reset()
 n_observations = len(state)
 
+# Specify number of NN connections
+n_connections = 128
+cndx = [i for i, v in enumerate(argv) if '--connections' in v]
+if len(cndx) > 0:
+    int(argv[cndx[-1]].replace('=', ' ').split('tions')[-1])
 
 policy_net = DQN(n_observations, n_actions).to(device)
 # Load Previous Work
