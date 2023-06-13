@@ -1,7 +1,9 @@
 import math
+import os
 import random
 from collections import deque, namedtuple
 from itertools import count
+from sys import argv
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -45,6 +47,10 @@ state, info = env.reset()
 n_observations = len(state)
 
 policy_net = DQN(n_observations, n_actions).to(device)
+fn = 'cp.torch'
+if os.path.isfile(fn):
+    print(f'Loading previous work from {fn}')
+    policy_net.load_state_dict(torch.load('cp.torch'))
 target_net = DQN(n_observations, n_actions).to(device)
 target_net.load_state_dict(policy_net.state_dict())
 
@@ -152,7 +158,10 @@ def optimize_model():
 # if torch.cuda.is_available():
 #     num_episodes = 600
 # else:
-num_episodes = 200
+num_episodes = 50
+if len(argv) > 1:
+    num_episodes = int(argv[1])
+print(f'Running {num_episodes} episodes')
 
 for i_episode in range(num_episodes):
     # Initialize the environment and get it's state
