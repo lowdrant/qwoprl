@@ -321,6 +321,7 @@ class DQNOptimizer:
         self.device = torch.device(device_str)
 
         self.episode_durations = []
+        self.lines = None
 
     def _epsfun_default(self, trial_num):
         """Training iteration -> probability of choosing random action
@@ -436,29 +437,46 @@ class DQNOptimizer:
         self._plot_durations(show_result, fignum, avg_len)
 
     def _plot_durations(self, show_result, num, avg_len):
-        plt.figure(num)
+        # Computation
         durations_t = torch.tensor(self.episode_durations, dtype=torch.float)
-        if show_result:
-            plt.title('Result')
-        else:
-            plt.clf()
-            plt.title('Training...')
-        plt.xlabel('Episode')
-        plt.ylabel('Duration')
-        plt.plot(durations_t.numpy())
-        # Take 100 episode averages and plot them too
         if len(durations_t) >= avg_len:
             means = durations_t.unfold(0, avg_len, 1).mean(1).view(-1)
             means = cat((zeros(avg_len - 1), means))
-            plt.plot(means.numpy())
 
+        # Plotting
+        fig = plt.figure(num)
+        if show_result:
+            plt.title('Result')
+        print(self.lines)
+        if self.lines is None:
+            plt.title('Training...')
+            plt.xlabel('Episode')
+            plt.ylabel('Duration')
+            line, = plt.plot(durations_t.numpy())
+            self.lines = [line]
+        elif len(self.lines) == 1:
+            self.lines[0].set_data(range(len(durations_t)), durations_t)
+            if len(durations_t) > avg_len:
+                line, = plt.plot(means.numpy())
+                self.lines.append(line)
+        else:
+            self.lines[0].set_data(range(len(durations_t)), durations_t)
+            self.lines[1].set_data(range(len(means)), means)
+
+        # Update
+        ax = fig.gca()
+        fig.gca().set_xlim((0, len(durations_t)))
+        ax.relim()
+        ax.autoscale(True)
+        fig.canvas.draw()
+        fig.canvas.flush_events()
         plt.pause(0.001)  # pause a bit so that plots are updated
-        if is_ipython:
-            if not show_result:
-                display.display(plt.gcf())
-                display.clear_output(wait=True)
-            else:
-                display.display(plt.gcf())
+        # if is_ipython:
+        #     if not show_result:
+        #         display.display(plt.gcf())
+        #         display.clear_output(wait=True)
+        #     else:
+        #         display.display(plt.gcf())
 
         if show_result:
             plt.ioff()
