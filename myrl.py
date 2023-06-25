@@ -437,39 +437,50 @@ class DQNOptimizer:
         self._plot_durations(show_result, fignum, avg_len)
 
     def _plot_durations(self, show_result, num, avg_len):
-        # Computation
+        winsz = 50
+
         durations_t = torch.tensor(self.episode_durations, dtype=torch.float)
+
+        xmax = len(durations_t)
+        xmin = max(0, xmax - winsz)
+        ymax = max(durations_t[xmin:xmax]) * 1.2
+        ddata = durations_t[xmin:xmax]
+
+        # Computation
+
         if len(durations_t) >= avg_len:
             means = durations_t.unfold(0, avg_len, 1).mean(1).view(-1)
             means = cat((zeros(avg_len - 1), means))
+            mdata = means.numpy()[xmin:xmax]
 
         # Plotting
         fig = plt.figure(num)
         if show_result:
             plt.title('Result')
-        print(self.lines)
         if self.lines is None:
+            fig.gca().autoscale(True)
             plt.title('Training...')
             plt.xlabel('Episode')
             plt.ylabel('Duration')
             line, = plt.plot(durations_t.numpy())
             self.lines = [line]
         elif len(self.lines) == 1:
-            self.lines[0].set_data(range(len(durations_t)), durations_t)
+            self.lines[0].set_data(range(xmin, xmax), ddata)
             if len(durations_t) > avg_len:
-                line, = plt.plot(means.numpy())
+                line, = plt.plot(mdata)
                 self.lines.append(line)
         else:
-            self.lines[0].set_data(range(len(durations_t)), durations_t)
-            self.lines[1].set_data(range(len(means)), means)
+            self.lines[0].set_data(range(xmin, xmax), ddata)
+            self.lines[1].set_data(range(xmin, xmax), mdata)
 
         # Update
         ax = fig.gca()
-        fig.gca().set_xlim((0, len(durations_t)))
-        ax.relim()
-        ax.autoscale(True)
+        xmax = len(durations_t)
+        xmin = max(xmin, xmax - 500)
+        ymax = max(durations_t[xmin:xmax]) * 1.2
+        ax.set_xlim((xmin, xmax))
+        ax.set_ylim(0, ymax)
         fig.canvas.draw()
-        fig.canvas.flush_events()
         plt.pause(0.001)  # pause a bit so that plots are updated
         # if is_ipython:
         #     if not show_result:
