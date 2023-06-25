@@ -10,7 +10,7 @@ from numpy.random import seed
 
 import gymnasium as gym
 from myrl import DQN, DQNOptimizer, ReplayMemory
-from torch import optim
+from torch import argmax, optim, tensor
 
 
 def create_parser():
@@ -41,20 +41,13 @@ def create_parser():
                         help='number of experiments per epoch')
     parser.add_argument('--save-epochs', action='store_true',
                         help='save epoch progress flag')
+    parser.add_argument('--demo', action='store_true',
+                        help='run net instead of training')
     return parser
 
 
-if __name__ == '__main__':
-    parser = create_parser()
-    args = parser.parse_args()
-
-    # Setup
-    env = gym.make("LunarLander-v2", render_mode=args.render_mode)
-    state, info = env.reset()
-    policy = DQN(len(state), env.action_space.n, env.action_space.sample)
-    if args.load:
-        policy.load(args.load_fn)
-
+def train(policy, args):
+    """train wrapper - policy net, cli args"""
     optimizer = DQNOptimizer(env,
                              optim.AdamW(policy.parameters(),
                                          lr=1e-4, amsgrad=True),
@@ -66,11 +59,13 @@ if __name__ == '__main__':
         if not os.path.exists(edir):
             os.mkdir(edir)
         plt.ion()
+        avg_len = max(2, args.epoch_size // 5)
         for i in range(1, args.N + 1):
-            optimizer(args.epoch_size)
+            optimizer(args.epoch_size, avg_len=avg_len)
             fn = f'{edir}/lander_{i}.torch'
             policy.save(fn)
             print(f'Epoch {i} complete -- saved to {fn}')
+        print('Complete!')
 
     if args.save:
         policy.save(args.save_fn)
@@ -78,3 +73,32 @@ if __name__ == '__main__':
 
     plt.ioff()
     plt.show()
+
+
+if __name__ == '__main__':
+    parser = create_parser()
+    args = parser.parse_args()
+
+    # Setup
+    env = gym.make("LunarLander-v2", render_mode=args.render_mode)
+    state, info = env.reset()
+    policy = DQN(len(state), env.action_space.n, env.action_space.sample)
+
+    # Load
+    if args.load:
+        policy.load(args.load_fn)
+
+    # Demo v. Train
+    if not args.demo:
+        train(policy, args)
+    else:
+        state, _ = env.reset()
+        N = args.N * args.epoch_size if args.save_epochs else args.N
+        for i in range(N):
+            state = tensor(state).unsqueeze(0)
+            action = policy(state).max(1)[1].view(1, 1)
+            next_state, reward, term, trunc, _ = env.step(action.item())
+            next_state = None if term else next_state
+            state = next_state
+            if term or trunc:
+                state, _ = env.reset()
