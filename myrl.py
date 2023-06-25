@@ -393,7 +393,7 @@ class DQNOptimizer:
                 self.TAU + target_net_state_dict[key] * (1 - self.TAU)
         self.target_net.load_state_dict(target_net_state_dict)
 
-    def optimize(self, num_episodes):
+    def optimize(self, num_episodes, show_result, fignum):
         for i_episode in range(num_episodes):
             state, _ = self.env.reset()
             state = self._tensor_unsqueeze(state)
@@ -419,10 +419,11 @@ class DQNOptimizer:
 
             # Epsiode End
             self.episode_durations.append(t + 1)
-            self._plot_durations()
+            self._plot_durations(False, fignum)
 
-        print('Complete')
-        self._plot_durations(show_result=True)
+        # Train End
+        self.episode_durations.append(t + 1)
+        self._plot_durations(show_result, fignum)
 
     def _select_action(self, state, n):
         """select action"""
@@ -431,10 +432,10 @@ class DQNOptimizer:
                 return self.policy_net(state).max(1)[1].view(1, 1)
         return torch.tensor([[self.env.action_space.sample()]], device=self.device, dtype=torch.long)
 
-    def __call__(self, num_episodes=100):
-        self.optimize(num_episodes)
+    def __call__(self, num_episodes=100, fignum=1, show_result=False):
+        self.optimize(num_episodes, show_result, fignum)
 
-    def _plot_durations(self, show_result=False, num=1):
+    def _plot_durations(self, show_result, num):
         plt.figure(num)
         durations_t = torch.tensor(self.episode_durations, dtype=torch.float)
         if show_result:
@@ -458,6 +459,9 @@ class DQNOptimizer:
                 display.clear_output(wait=True)
             else:
                 display.display(plt.gcf())
+
+        if show_result:
+            plt.ioff()
 
 
 if __name__ == '__main__':
