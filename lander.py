@@ -9,7 +9,7 @@ from numpy import linspace, pi
 from numpy.random import seed
 
 import gymnasium as gym
-from myrl import DQN, DQNOptimizer, ReplayMemory, plotrl
+from myrl import DQN, DQNOptimizer, ReplayMemory
 from torch import optim
 
 
@@ -17,7 +17,7 @@ def create_parser():
     """Create CLI. Functionalized for code folding."""
     parser = ArgumentParser('Lunar lander RL playground')
     parser.add_argument(
-        'N', nargs='?', help='number of experiments to run', default=10, type=int)
+        'N', nargs='?', help='number of experiments to run (epochs if --save-epochs)', default=10, type=int)
     parser.add_argument('--eps', default=0.25, type=float,
                         help='random action probability (def:0.25)')
     parser.add_argument('--alpha', default=0.5, type=float,
@@ -52,30 +52,29 @@ if __name__ == '__main__':
     env = gym.make("LunarLander-v2", render_mode=args.render_mode)
     state, info = env.reset()
     policy = DQN(len(state), env.action_space.n, env.action_space.sample)
+    if args.load:
+        policy.load(args.load_fn)
 
     optimizer = DQNOptimizer(env,
                              optim.AdamW(policy.parameters(),
                                          lr=1e-4, amsgrad=True),
                              ReplayMemory(10000), policy)
-    optimizer(10)
 
-    # End
+    if args.save_epochs:
+        import os
+        edir = 'epoch'
+        if not os.path.exists(edir):
+            os.mkdir(edir)
+        plt.ion()
+        for i in range(1, args.N + 1):
+            optimizer(args.epoch_size)
+            fn = f'{edir}/lander_{i}.torch'
+            policy.save(fn)
+            print(f'Epoch {i} complete -- saved to {fn}')
+
     if args.save:
-        fn = args.save_fn
-        if not args.overwrite:  # test file existence
-            found_fn = False
-            n = 1
-            while not found_fn:
-                try:
-                    open(fn, 'r').close()
-                except FileNotFoundError:
-                    found_fn = True
-                else:
-                    print(f"'{fn}' already exists! incrementing number")
-                    fn = args.save_fn.rsplit(
-                        '.')[0] + f'_{n}.' + fn.rsplit('.')[-1]
-                    n += 1
-        policy.save(fn)
+        policy.save(args.save_fn)
+        print(f'Saved NN to {args.save_fn}')
 
     plt.ioff()
     plt.show()

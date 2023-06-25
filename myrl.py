@@ -248,6 +248,14 @@ class DQN(nn.Module):
         x = F.relu(self.connecting_layer(x))
         return self.output_layer(x)
 
+    def save(self, fn):
+        """save state_dict to fn"""
+        torch.save(self.state_dict, fn)
+
+    def load(self, fn):
+        """load state_dict from fn"""
+        self.load_state_dict(torch.load(fn))
+
     # def __call__(self, x, eps=0):
     #     if rand() < eps:
     #         return self.random_action()
@@ -411,12 +419,10 @@ class DQNOptimizer:
 
             # Epsiode End
             self.episode_durations.append(t + 1)
-            self.plot_durations()
+            self._plot_durations()
 
         print('Complete')
-        self.plot_durations(show_result=True)
-        plt.ioff()
-        plt.show()
+        self._plot_durations(show_result=True)
 
     def _select_action(self, state, n):
         """select action"""
@@ -428,7 +434,7 @@ class DQNOptimizer:
     def __call__(self, num_episodes=100):
         self.optimize(num_episodes)
 
-    def plot_durations(self, show_result=False, num=1):
+    def _plot_durations(self, show_result=False, num=1):
         plt.figure(num)
         durations_t = torch.tensor(self.episode_durations, dtype=torch.float)
         if show_result:
@@ -441,7 +447,7 @@ class DQNOptimizer:
         plt.plot(durations_t.numpy())
         # Take 100 episode averages and plot them too
         if len(durations_t) >= 100:
-            means = self.durations_t.unfold(0, 100, 1).mean(1).view(-1)
+            means = durations_t.unfold(0, 100, 1).mean(1).view(-1)
             means = cat((zeros(99), means))
             plt.plot(means.numpy())
 
