@@ -295,6 +295,7 @@ class DQNOptimizer:
             eps_start -- float -- initial probability of choosing random action
             eps_end -- float -- final probability of choosing random action
             eps_decay -- float -- exponenital decay rate of epsilon
+            winsz -- window width for plotting
     """
 
     def __init__(self, env, optimizer, memory, target_net, **kwargs):
@@ -322,6 +323,7 @@ class DQNOptimizer:
 
         self.episode_durations = []
         self.lines = None
+        self.winsz = kwargs.get('winsz', 50)
 
     def _epsfun_default(self, trial_num):
         """Training iteration -> probability of choosing random action
@@ -437,12 +439,11 @@ class DQNOptimizer:
         self._plot_durations(show_result, fignum, avg_len)
 
     def _plot_durations(self, show_result, num, avg_len):
-        winsz = 50
 
         durations_t = torch.tensor(self.episode_durations, dtype=torch.float)
 
         xmax = len(durations_t)
-        xmin = max(0, xmax - winsz)
+        xmin = max(0, xmax - self.winsz)
         ymax = max(durations_t[xmin:xmax]) * 1.2
         ddata = durations_t[xmin:xmax]
 
