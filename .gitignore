@@ -2,6 +2,7 @@
 *.txt
 *.npy
 *.npz
+*.torch
 
 # ====
 

@@ -5,11 +5,12 @@ Lunar Lander gym playground
 from argparse import ArgumentParser
 
 import matplotlib.pyplot as plt
-from numpy import linspace, pi, vstack
+from numpy import linspace, pi
 from numpy.random import seed
 
 import gymnasium as gym
-from myrl import DiscretizerFactory, QTable, plotrl
+from myrl import DQN, DQNOptimizer, ReplayMemory, plotrl
+from torch import optim
 
 
 def create_parser():
@@ -49,60 +50,14 @@ if __name__ == '__main__':
 
     # Setup
     env = gym.make("LunarLander-v2", render_mode=args.render_mode)
-    ds = DiscretizerFactory([
-        {-0.3: '<', 0.3: '>'},  # x
-        {0: '<', 0.1: '<', 1: '<'},  # y
-        {-1: '<', -0.1: '<', 1: '>'},  # vx
-        {-1: '<', -0.1: '<', 1: '>'},  # vy
-        {v: '<' for v in linspace(0.1, pi, 10)},  # theta
-        {-1: '<', -0.1: '<', 1: '>'}  # omega
-    ])
-    policy = QTable(ds.n, 4, env.action_space.sample, ds)
-    num_epoch = 0  # track epoch number
-    if args.load:
-        policy.load(args.load_fn, args.load_params)
-        split = args.load_fn.split('_epoch')
-        epoch_basefn = split[0]
-        if len(split) > 1:
-            num_epoch = int(split[1].rsplit('.')[0])
-    else:
-        policy = QTable(ds.n, 4, env.action_space.sample, ds,
-                        eps=args.eps, alpha=args.alpha, gamma=args.gamma)
-        epoch_basefn = args.save_fn.rsplit('.')[0]
+    state, info = env.reset()
+    policy = DQN(len(state), env.action_space.n, env.action_space.sample)
 
-    # Experiment
-    olog, rlog, alog = [], [], []
-    state, info = env.reset(seed=42)
-    seed(0)
-    for n in range(args.N):
-        # Action
-        action = policy.pick_action(state[:-2])
-        next_state, reward, terminated, truncated, info = env.step(action)
-        if terminated or truncated:
-            observation, info = env.reset()
-
-        # Update
-        policy.update_reward(state[:-2], action, next_state[:-2], reward)
-        state = next_state
-
-        olog.append(state)
-        alog.append(action)
-        rlog.append(reward)
-
-        if args.save_epochs:
-            if (n + 1) % args.epoch_size == 0:
-                num_epoch += 1
-                policy.save(epoch_basefn + f'_epoch{num_epoch}.txt')
-                print(f'Saved epoch {num_epoch}')
-                if args.plot:
-                    plt.ion()
-                    olog = vstack(olog).T
-                    plotrl(olog, rlog, alog, num=1)
-                    plt.show()
-                    plt.pause(1)
-                olog, rlog, alog = [], [], []
-
-    env.close()
+    optimizer = DQNOptimizer(env,
+                             optim.AdamW(policy.parameters(),
+                                         lr=1e-4, amsgrad=True),
+                             ReplayMemory(10000), policy)
+    optimizer(10)
 
     # End
     if args.save:

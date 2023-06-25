@@ -9,20 +9,29 @@ Provides:
     DiscretizerFactory -- takes hashmaps describing discretization and
                           returns a callable for discretizing the state
 """
+from collections import deque, namedtuple
 from copy import deepcopy
 from itertools import count
 from itertools import product as iterprod
+from random import sample
 
 import matplotlib.pyplot as plt
+from matplotlib import get_backend as get_mpl_backend
 from matplotlib.gridspec import GridSpec
-from numpy import argmax, array_equal, exp, loadtxt, savetxt
+from numpy import array_equal, exp, loadtxt, savetxt
 from numpy.random import rand
 
 import torch
 import torch.nn.functional as F
-from torch import cat, float32, nn, no_grad, tensor, zeros
+from torch import argmax, cat, float32, nn, no_grad, tensor, zeros
 
-__all__ = ['plotrl', 'QTable', 'DiscretizerFactory', 'DQN', 'DQNOptimizer']
+__all__ = ['plotrl', 'QTable', 'DiscretizerFactory',
+           'DQN', 'DQNOptimizer', 'ReplayMemory']
+is_ipython = 'inline' in get_mpl_backend()
+try:
+    from IPython import display
+except ImportError:
+    pass
 
 
 def plotrl(obs, reward, action, fig=None, **figkw):
@@ -213,7 +222,7 @@ def test_DiscretizerFactory():
     assert ds2.n == 25, 'bad fine size'
 
 
-class DQN:
+class DQN(nn.Module):
     """Deep Q-Learning implementation
         https://pytorch.org/tutorials/intermediate/reinforcement_q_learning.html
 
@@ -239,10 +248,32 @@ class DQN:
         x = F.relu(self.connecting_layer(x))
         return self.output_layer(x)
 
-    def __call__(self, x, eps=0):
-        if rand() < eps:
-            return self.random_action()
-        return argmax(self.forward(x))
+    # def __call__(self, x, eps=0):
+    #     if rand() < eps:
+    #         return self.random_action()
+    #     return argmax(self.forward(x))
+
+
+Transition = namedtuple('Transition',
+                        ('state', 'action', 'next_state', 'reward'))
+
+
+class ReplayMemory:
+    """https://pytorch.org/tutorials/intermediate/reinforcement_q_learning.html#replay-memory"""
+
+    def __init__(self, capacity):
+        self.memory = deque([], maxlen=capacity)
+
+    def push(self, *args):
+        """Save a transition"""
+        self.memory.append(Transition(*args))
+
+    def sample(self, batch_size):
+        """pick something"""
+        return sample(self.memory, batch_size)
+
+    def __len__(self):
+        return len(self.memory)
 
 
 class DQNOptimizer:
@@ -261,6 +292,7 @@ class DQNOptimizer:
     def __init__(self, env, optimizer, memory, target_net, **kwargs):
         self.optimizer = optimizer
         self.env = env
+        self.target_net = target_net
         self.policy_net = deepcopy(target_net)
         self.optimizer = deepcopy(optimizer)
         self.memory = deepcopy(memory)
@@ -279,6 +311,8 @@ class DQNOptimizer:
         if kwargs.get('try_cuda', False) and torch.cuda.is_available():
             device_str = 'cuda'
         self.device = torch.device(device_str)
+
+        self.episode_durations = []
 
     def _epsfun_default(self, trial_num):
         """Training iteration -> probability of choosing random action
@@ -316,7 +350,8 @@ class DQNOptimizer:
         # Compute Q(s_t, a) - the model computes Q(s_t), then we select the
         # columns of actions taken. These are the actions which would've been taken
         # for each batch state according to policy_net
-        state_action_values = policy_net(state_batch).gather(1, action_batch)
+        state_action_values = self.policy_net(
+            state_batch).gather(1, action_batch)
 
         # Compute V(s_{t+1}) for all next states.
         # Expected values of actions for non_final_next_states are computed based
@@ -325,7 +360,7 @@ class DQNOptimizer:
         # state value or 0 in case the state was final.
         next_state_values = zeros(self.BATCH_SIZE, device=self.device)
         with no_grad():
-            next_state_values[non_final_mask] = target_net(
+            next_state_values[non_final_mask] = self.target_net(
                 non_final_next_states).max(1)[0]
         # Compute the expected Q values
         expected_state_action_values = (
@@ -375,11 +410,11 @@ class DQNOptimizer:
                     break
 
             # Epsiode End
-            episode_durations.append(t + 1)
-            plot_durations()
+            self.episode_durations.append(t + 1)
+            self.plot_durations()
 
         print('Complete')
-        plot_durations(show_result=True)
+        self.plot_durations(show_result=True)
         plt.ioff()
         plt.show()
 
@@ -389,6 +424,34 @@ class DQNOptimizer:
             with torch.no_grad():
                 return self.policy_net(state).max(1)[1].view(1, 1)
         return torch.tensor([[self.env.action_space.sample()]], device=self.device, dtype=torch.long)
+
+    def __call__(self, num_episodes=100):
+        self.optimize(num_episodes)
+
+    def plot_durations(self, show_result=False, num=1):
+        plt.figure(num)
+        durations_t = torch.tensor(self.episode_durations, dtype=torch.float)
+        if show_result:
+            plt.title('Result')
+        else:
+            plt.clf()
+            plt.title('Training...')
+        plt.xlabel('Episode')
+        plt.ylabel('Duration')
+        plt.plot(durations_t.numpy())
+        # Take 100 episode averages and plot them too
+        if len(durations_t) >= 100:
+            means = self.durations_t.unfold(0, 100, 1).mean(1).view(-1)
+            means = cat((zeros(99), means))
+            plt.plot(means.numpy())
+
+        plt.pause(0.001)  # pause a bit so that plots are updated
+        if is_ipython:
+            if not show_result:
+                display.display(plt.gcf())
+                display.clear_output(wait=True)
+            else:
+                display.display(plt.gcf())
 
 
 if __name__ == '__main__':
