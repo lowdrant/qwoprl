@@ -250,7 +250,7 @@ class DQN(nn.Module):
 
     def save(self, fn):
         """save state_dict to fn"""
-        torch.save(self.state_dict, fn)
+        torch.save(self.state_dict(), fn)
 
     def load(self, fn):
         """load state_dict from fn"""
